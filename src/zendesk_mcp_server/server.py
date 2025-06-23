@@ -176,6 +176,20 @@ async def handle_list_tools() -> list[types.Tool]:
                 },
                 "required": ["ticket_id", "comment"]
             }
+        ),
+        types.Tool(
+            name="get_tickets_by_agent_name_or_id",
+            description="Get all unsolved tickets assigned to a specific agent by their first name, full name, or user ID",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "agent_identifier": {
+                        "type": "string",
+                        "description": "The first name, full name, or user ID of the agent to get tickets for"
+                    }
+                },
+                "required": ["agent_identifier"]
+            }
         )
     ]
 
@@ -215,6 +229,15 @@ async def handle_call_tool(
             return [types.TextContent(
                 type="text",
                 text=f"Comment created successfully: {result}"
+            )]
+
+        elif name == "get_tickets_by_agent_name_or_id":
+            tickets = zendesk_client.get_tickets_by_agent_name_or_id(
+                arguments["agent_identifier"]
+            )
+            return [types.TextContent(
+                type="text",
+                text=json.dumps(tickets)
             )]
 
         else:
