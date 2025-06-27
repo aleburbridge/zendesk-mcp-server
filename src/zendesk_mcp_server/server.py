@@ -171,7 +171,12 @@ async def handle_list_tools() -> list[types.Tool]:
                     "public": {
                         "type": "boolean",
                         "description": "Whether the comment should be public",
-                        "default": True
+                        "default": False
+                    },
+                    "confirm_post": {
+                        "type": "boolean", 
+                        "description": "Must be given permission by a human agent to post a comment. Ensures Claude does not go rogue and post by himself",
+                        "default": False
                     }
                 },
                 "required": ["ticket_id", "comment"]
@@ -221,10 +226,12 @@ async def handle_call_tool(
 
         elif name == "create_ticket_comment":
             public = arguments.get("public", True)
+            confirm_post = arguments.get("confirm_post", False)
             result = zendesk_client.post_comment(
                 ticket_id=arguments["ticket_id"],
                 comment=arguments["comment"],
-                public=public
+                public=public,
+                confirm_post=confirm_post
             )
             return [types.TextContent(
                 type="text",

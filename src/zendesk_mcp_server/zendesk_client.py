@@ -83,21 +83,24 @@ class ZendeskClient:
         except Exception as e:
             raise Exception(f"Failed to get comments for ticket {ticket_id}: {str(e)}")
 
-    def post_comment(self, ticket_id: int, comment: str, public: bool = True) -> str:
+    def post_comment(self, ticket_id: int, comment: str, public: bool = False, confirm_post: bool = False) -> str:
         """
         Post a comment to an existing ticket.
         """
+        if not confirm_post:
+            raise Exception("Permission denied: confirm_post must be True to post comment")
+        
         try:
             ticket = self.client.tickets(id=ticket_id)
             ticket.comment = Comment(
                 html_body=comment,
-                public=public
+                public=public  
             )
             self.client.tickets.update(ticket)
             return comment
         except Exception as e:
             raise Exception(f"Failed to post comment on ticket {ticket_id}: {str(e)}")
-
+            
     def get_all_articles(self) -> Dict[str, Any]:
         """
         Fetch help center articles as knowledge base.

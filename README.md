@@ -34,6 +34,7 @@ This server provides a comprehensive integration with Zendesk. It offers:
   }
 }
 ```
+- run: `uv run zendesk`
 
 ## Resources
 
