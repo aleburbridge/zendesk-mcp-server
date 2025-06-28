@@ -183,8 +183,8 @@ async def handle_list_tools() -> list[types.Tool]:
             }
         ),
         types.Tool(
-            name="get_tickets_by_agent_name_or_id",
-            description="Get all unsolved tickets assigned to a specific agent by their first name, full name, or user ID",
+            name="get_tickets_by_agent_name_or_agent_id",
+            description="Get all unsolved ticket IDs assigned to a specific agent by their first name, full name, or user ID",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -194,6 +194,20 @@ async def handle_list_tools() -> list[types.Tool]:
                     }
                 },
                 "required": ["agent_identifier"]
+            }
+        ),
+        types.Tool(
+            name="get_ticket_priority",
+            description="Calculate the priority score of a ticket based on SLA tags, age, response time, and status",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "ticket_id": {
+                        "type": "integer",
+                        "description": "The ID of the ticket to calculate priority for"
+                    }
+                },
+                "required": ["ticket_id"]
             }
         )
     ]
@@ -238,13 +252,22 @@ async def handle_call_tool(
                 text=f"Comment created successfully: {result}"
             )]
 
-        elif name == "get_tickets_by_agent_name_or_id":
-            tickets = zendesk_client.get_tickets_by_agent_name_or_id(
+        elif name == "get_tickets_by_agent_name_or_agent_id":
+            tickets = zendesk_client.get_tickets_by_agent_name_or_agent_id(
                 arguments["agent_identifier"]
             )
             return [types.TextContent(
                 type="text",
                 text=json.dumps(tickets)
+            )]
+
+        elif name == "get_ticket_priority":
+            priority_score = zendesk_client.get_ticket_priority(
+                arguments["ticket_id"]
+            )
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"ticket_id": arguments["ticket_id"], "priority_score": priority_score})
             )]
 
         else:

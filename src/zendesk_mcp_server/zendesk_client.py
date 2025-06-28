@@ -1,6 +1,7 @@
 from typing import Dict, Any, List
 import json
 import os
+from datetime import datetime, timezone
 
 from zenpy import Zenpy
 from zenpy.lib.api_objects import Comment
@@ -101,39 +102,10 @@ class ZendeskClient:
             return comment
         except Exception as e:
             raise Exception(f"Failed to post comment on ticket {ticket_id}: {str(e)}")
-            
-    def get_all_articles(self) -> Dict[str, Any]:
-        """
-        Fetch help center articles as knowledge base.
-        Returns a Dict of section -> [article].
-        """
-        try:
-            # Get all sections
-            sections = self.client.help_center.sections()
 
-            # Get articles for each section
-            kb = {}
-            for section in sections:
-                articles = self.client.help_center.sections.articles(section.id)
-                kb[section.name] = {
-                    'section_id': section.id,
-                    'description': section.description,
-                    'articles': [{
-                        'id': article.id,
-                        'title': article.title,
-                        'body': article.body,
-                        'updated_at': str(article.updated_at),
-                        'url': article.html_url
-                    } for article in articles]
-                }
-
-            return kb
-        except Exception as e:
-            raise Exception(f"Failed to fetch knowledge base: {str(e)}")
-
-    def get_tickets_by_agent_name_or_id(self, agent_identifier: str) -> List[Dict[str, Any]]:
+    def get_tickets_by_agent_name_or_agent_id(self, agent_identifier: str) -> List[int]:
         """
-        Get all unsolved tickets assigned to a specific agent by their first name, full name, or user ID.
+        Get all unsolved ticket IDs assigned to a specific agent by their first name, full name, or user ID.
         """
         try:
             # Check if the input is a numeric ID
@@ -170,17 +142,67 @@ class ZendeskClient:
                         tickets = self.client.search(query=f'assignee:{assignee_id} status:open status:pending status:"Feature Request Review Pending" status:"ENG Confirmed Bug"')
                         all_tickets.extend(tickets)
             
-            return [{
-                'id': ticket.id,
-                'subject': ticket.subject,
-                'description': ticket.description,
-                'status': ticket.status,
-                'priority': ticket.priority,
-                'created_at': str(ticket.created_at),
-                'updated_at': str(ticket.updated_at),
-                'requester_id': ticket.requester_id,
-                'assignee_id': ticket.assignee_id,
-                'organization_id': ticket.organization_id
-            } for ticket in all_tickets]
+            return [ticket.id for ticket in all_tickets]
         except Exception as e:
             raise Exception(f"Failed to get tickets for agent {agent_identifier}: {str(e)}")
+
+    def get_ticket_priority(self, ticket_id: int) -> int:
+        """
+        Calculate the priority of a ticket based on multiple factors:
+        1. SLA enterprise tag (immediately higher priority)
+        2. Age of the ticket
+        3. Time since last response
+        4. Status priority (Open > New > Pending > Feature Request Review Pending > ENG Confirmed Bug)
+        
+        Returns a dictionary with priority score and breakdown of factors.
+        """
+        try:
+            # Get ticket details
+            ticket = self.client.tickets(id=ticket_id)
+            comments = self.client.tickets.comments(ticket=ticket_id)
+            
+            # higher priority_score = more urgent
+            priority_score = 0
+            
+            if ticket.tags and 'sla_enterprise' in ticket.tags:
+                priority_score += 100
+            
+            now = datetime.now(timezone.utc)
+            
+            # Ensure ticket.created_at is a datetime object
+            ticket_created = ticket.created_at
+            if isinstance(ticket_created, str):
+                ticket_created = datetime.fromisoformat(ticket_created.replace('Z', '+00:00'))
+            
+            ticket_age_hours = (now - ticket_created).total_seconds() / 3600
+            age_score = (ticket_age_hours / 24) * 5
+            priority_score += age_score
+            
+            if comments:
+                latest_comment = max(comments, key=lambda c: c.created_at)
+                
+                # Ensure comment.created_at is a datetime object
+                comment_created = latest_comment.created_at
+                if isinstance(comment_created, str):
+                    comment_created = datetime.fromisoformat(comment_created.replace('Z', '+00:00'))
+                
+                hours_since_response = (now - comment_created).total_seconds() / 3600
+                response_score = (hours_since_response / 24) * 10
+                priority_score += response_score
+            
+            # Factor 4: Status priority
+            status_scores = {
+                'open': 100,
+                'new': 75,
+                'pending': 25,
+                'feature request review pending': 0,
+                'eng confirmed bug': 0
+            }
+            
+            status_score = status_scores.get((ticket.status.lower()), 0)
+            priority_score += status_score
+            
+            return int(priority_score)
+            
+        except Exception as e:
+            raise Exception(f"Failed to calculate priority for ticket {ticket_id}: {str(e)}")
