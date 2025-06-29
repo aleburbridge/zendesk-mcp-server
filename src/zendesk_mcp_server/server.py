@@ -183,8 +183,8 @@ async def handle_list_tools() -> list[types.Tool]:
             }
         ),
         types.Tool(
-            name="get_tickets_by_agent_name_or_agent_id",
-            description="Get all unsolved ticket IDs assigned to a specific agent by their first name, full name, or user ID",
+            name="get_tickets_by_agent",
+            description="Get all unsolved ticket IDs and statuses assigned to a specific agent by their first name, full name, or user ID",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -252,8 +252,8 @@ async def handle_call_tool(
                 text=f"Comment created successfully: {result}"
             )]
 
-        elif name == "get_tickets_by_agent_name_or_agent_id":
-            tickets = zendesk_client.get_tickets_by_agent_name_or_agent_id(
+        elif name == "get_tickets_by_agent":
+            tickets = zendesk_client.get_tickets_by_agent(
                 arguments["agent_identifier"]
             )
             return [types.TextContent(

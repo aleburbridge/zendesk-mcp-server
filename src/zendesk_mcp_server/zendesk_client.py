@@ -48,7 +48,7 @@ class ZendeskClient:
 
     def get_ticket(self, ticket_id: int) -> Dict[str, Any]:
         """
-        Query a ticket by its ID
+        Query a ticket by its ID and return all relevant information
         """
         try:
             ticket = self.client.tickets(id=ticket_id)
@@ -103,9 +103,9 @@ class ZendeskClient:
         except Exception as e:
             raise Exception(f"Failed to post comment on ticket {ticket_id}: {str(e)}")
 
-    def get_tickets_by_agent_name_or_agent_id(self, agent_identifier: str) -> List[int]:
+    def get_tickets_by_agent(self, agent_identifier: str) -> List[Dict[str, Any]]:
         """
-        Get all unsolved ticket IDs assigned to a specific agent by their first name, full name, or user ID.
+        Get all unsolved ticket IDs and statuses assigned to a specific agent by their first name, full name, or user ID.
         """
         try:
             # Check if the input is a numeric ID
@@ -142,7 +142,7 @@ class ZendeskClient:
                         tickets = self.client.search(query=f'assignee:{assignee_id} status:open status:pending status:"Feature Request Review Pending" status:"ENG Confirmed Bug"')
                         all_tickets.extend(tickets)
             
-            return [ticket.id for ticket in all_tickets]
+            return [{'id': ticket.id, 'status': ticket.status} for ticket in all_tickets]
         except Exception as e:
             raise Exception(f"Failed to get tickets for agent {agent_identifier}: {str(e)}")
 
